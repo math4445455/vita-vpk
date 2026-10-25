@@ -1,0 +1,54 @@
+name: Gerar VPK - O Ultimo Endereco (PS Vita)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  build-vita:
+    name: Compilar VPK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar arquivos do repositorio
+        uses: actions/checkout@v4
+
+      - name: Instalar Lua
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq lua5.1
+
+      - name: Verificar codigo do jogo
+        run: |
+          find ultimo-endereco/APP_VITA -name '*.lua' -print0 | xargs -0 -n1 luac5.1 -p
+          lua5.1 ultimo-endereco/TESTES/teste_vita_mock.lua ultimo-endereco/APP_VITA
+
+      - name: Baixar executavel PS Vita
+        run: |
+          curl -fL --retry 3 \
+            https://github.com/Rinnegatamante/lpp-vita/releases/download/Nightly/eboot_safe.bin \
+            -o eboot_safe.bin
+          echo "6ab6a6e39d32143a4e031d7072090dc34786be91e11e8f5d5edd75c098489930  eboot_safe.bin" | sha256sum -c -
+
+      - name: Gerar VPK
+        run: |
+          mkdir -p dist
+          python3 ultimo-endereco/build_vpk.py eboot_safe.bin \
+            --output dist/O_ULTIMO_ENDERECO_VITA.vpk
+
+      - name: Verificar VPK
+        run: |
+          python3 ultimo-endereco/validar_vpk.py \
+            dist/O_ULTIMO_ENDERECO_VITA.vpk
+
+      - name: Disponibilizar VPK
+        uses: actions/upload-artifact@v4
+        with:
+          name: O_ULTIMO_ENDERECO_VITA
+          path: dist/O_ULTIMO_ENDERECO_VITA.vpk
